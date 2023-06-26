@@ -1,8 +1,10 @@
+import numpy as np
 import pandas as pd
 from sklearn import preprocessing
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.model_selection import StratifiedKFold, GridSearchCV
 
 
 def load_data(
@@ -33,10 +35,7 @@ def preprocessing_data(
         test_data[i] = le.transform(test_data[i])
 
 
-def heat_map(
-        train_data: pd.DataFrame,
-        save: bool = True
-):
+def heat_map(train_data: pd.DataFrame):
     # Create a correlation matrix
     corr_matrix = train_data.corr()
 
@@ -46,22 +45,61 @@ def heat_map(
 
     # Set the title and display the plot
     plt.title('Correlation Matrix Heatmap')
-    if save:
-        plt.savefig("heatmap.svg", format="svg")
-    plt.show()
+    plt.savefig("heatmap.svg", format="svg")
 
 
-def train_model_and_predict(
-        train_data: pd.DataFrame,
-        test_data: pd.DataFrame
+def grid_search_cv(
+    train_data: pd.DataFrame,
+    test_data: pd.DataFrame
+):
+    x, x_test, y = get_x_y(train_data, test_data)
+
+    model = GradientBoostingClassifier()
+    kfold = StratifiedKFold(n_splits=10, shuffle=True, random_state=7)
+    param_grid = {
+        "learning_rate": [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3],
+        "n_estimators": [50, 100, 200, 300, 400, 500, 800]
+    }
+    # Perform the gird search
+    grid_search = GridSearchCV(model, param_grid, scoring="neg_log_loss", n_jobs=-1, cv=kfold)
+    grid_result = grid_search.fit(x, y)
+
+    means = grid_result.cv_results_['mean_test_score']
+    scores = np.array(means).reshape(len(param_grid["learning_rate"]), len(param_grid["n_estimators"]))
+
+    # Plot the neg_log_loss of each combination
+    plt.clf()
+    for i, value in enumerate(param_grid["learning_rate"]):
+        plt.plot(param_grid["n_estimators"], scores[i], label='learning_rate: ' + str(value))
+    plt.legend()
+    plt.xlabel('n_estimators')
+    plt.ylabel('Log Loss')
+    plt.savefig('hyperparameters_comparison.svg', format='svg')
+
+
+def get_x_y(
+    train_data: pd.DataFrame,
+    test_data: pd.DataFrame
 ):
     # Finalize the data
     x = pd.get_dummies(train_data[["Pclass", "Sex", "Fare", "Embarked"]]).fillna(-1)
     x_test = pd.get_dummies(test_data[["Pclass", "Sex", "Fare", "Embarked"]]).fillna(-1)
     y = train_data["Survived"]
+    return x, x_test, y
+
+
+def train_model_and_predict(
+        train_data: pd.DataFrame,
+        test_data: pd.DataFrame
+
+):
+    x, x_test, y = get_x_y(train_data, test_data)
 
     # Train the model
-    model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=1)
+    model = GradientBoostingClassifier(
+        learning_rate=0.01,
+        n_estimators=500
+    )
     model.fit(x, y)
 
     # Predict and store predictions
