@@ -88,7 +88,7 @@ def get_x_y(
     return x, x_test, y
 
 
-def train_model_and_predict(
+def build_train_model(
         train_data: pd.DataFrame,
         test_data: pd.DataFrame
 
@@ -112,7 +112,7 @@ def main():
     train_data, test_data = load_data("./data/train.csv", "./data/test.csv")
     preprocessing_data(train_data, test_data)
     heat_map(train_data)
-    train_model_and_predict(train_data, test_data)
+    build_train_model(train_data, test_data)
 
 
 if __name__ == "__main__":
